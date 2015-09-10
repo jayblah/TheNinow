@@ -35,7 +35,7 @@ namespace TheGaren
             var items = mainMenu.CreateSubmenu("Items");
             var gapcloserMenu = mainMenu.CreateSubmenu("Gapcloser");
             var interrupterMenu = mainMenu.CreateSubmenu("Interrupter");
-            var autoLevel = mainMenu.CreateSubmenu("Auto level spells");
+            var autoLevel = mainMenu.CreateSubmenu("Auto-level Skills");
             var drawingMenu = mainMenu.CreateSubmenu("Drawing");
 
 
