@@ -1,48 +1,53 @@
 ﻿using System.Collections.Generic;
 using LeagueSharp;
 using LeagueSharp.Common;
-using TheGaren.Commons.ComboSystem;
-using TheGaren.Commons.Items;
+using TheKalista.Commons.ComboSystem;
+using TheKalista.Commons.Items;
 
-namespace TheGaren.Commons
+namespace TheKalista.Commons
 {
-    public static class ItemManager
+    public class ItemManager
     {
-        private static Dictionary<IActivateableItem, bool> _items;
-        private static bool _combo, _harass;
+        private Dictionary<IActivateableItem, bool> _items;
+        private bool _combo;
+        private ComboProvider _provider;
+        private bool Enabled;
 
-        public static void Initialize(Menu menu, ComboProvider combo)
+        public void Attach(Menu menu, ComboProvider provider, params IActivateableItem[] items)
         {
+            _provider = provider;
             _items = new Dictionary<IActivateableItem, bool>();
-            var items = new IActivateableItem[] { new BilgewaterCutlass(), new Botrk(), new YoumusBlade(), new RavenousHydra() };
 
             foreach (var activateableItem in items)
             {
                 IActivateableItem item = activateableItem;
+                if (item.GetRange() != int.MaxValue && item.GetRange() != 0 && item.GetRange() + 100 < ObjectManager.Player.AttackRange) continue;
 
                 var itemMenu = new Menu(item.GetDisplayName(), item.GetDisplayName());
-                item.Initialize(itemMenu);
+                item.Initialize(itemMenu, this);
                 _items.Add(item, true);
-                itemMenu.AddMItem("Enabled", true, (sender, agrs) => _items[item] = agrs.GetNewValue<bool>()).ProcStoredValueChanged<bool>();
+                itemMenu.AddMItem("Enabled", true, (sender, agrs) => _items[item] = agrs.GetNewValue<bool>());
                 menu.AddSubMenu(itemMenu);
             }
-            menu.AddMItem("Use in combo", true, (sender, args) => _combo = args.GetNewValue<bool>());
-            menu.AddMItem("Use in harass", false, (sender, args) => _harass = args.GetNewValue<bool>());
-            menu.ProcStoredValueChanged<bool>();
-            Game.OnUpdate += _ => Update(combo);
+            menu.AddMItem("Only in Combo", true, (sender, args) => _combo = args.GetNewValue<bool>());
+            menu.AddMItem("Enabled", true, (sender, args) => Enabled = args.GetNewValue<bool>());
+            Game.OnUpdate += _ => Update();
         }
 
-        private static void Update(ComboProvider combo)
+        private void Update()
         {
-            var target = combo.GetTarget();
-            if (!target.IsValidTarget()) return;
-            if (combo.Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Combo && !_combo || combo.Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Mixed && !_harass || (combo.Orbwalker.ActiveMode != Orbwalking.OrbwalkingMode.Combo && combo.Orbwalker.ActiveMode != Orbwalking.OrbwalkingMode.Mixed)) return;
+            if (_provider.Orbwalker.ActiveMode != Orbwalking.OrbwalkingMode.Combo && _combo || !Enabled) return;
             foreach (var item in _items)
-                if (item.Value)
-                    item.Key.Update(target);
+                if (item.Value && _provider.Target.IsValidTarget())
+                    item.Key.Update(_provider.Target);
         }
 
-        public static T GetItem<T>() where T : IActivateableItem
+        public bool IsTickingNow(IActivateableItem item)
+        {
+            return _items.ContainsKey(item) && _items[item] && (!_combo || _provider.Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Combo);
+        }
+
+        public T GetItem<T>() where T : IActivateableItem
         {
             foreach (var item in _items.Keys)
                 if (item is T)
